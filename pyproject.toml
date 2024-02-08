@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dipcalc"
+description = "A complete adjudicator for the boardgame: Diplomacy"
+version = "0.0.1"
+readme = "README.md"
+authors = [{name = "Alex Hall", email = "alex@alexhall.dev"}]
+requires-python = ">=3.10"
+dependencies = [
+    "click",
+    "networkx"
+]
+
+[project.scripts]
+dipcalc = "dipcalc:cli"
+
+[tool.setuptools.packages.find]
+include = ["dipcalc*"]
+exclude = ["dipcalc.tests*"]

@@ -2,10 +2,10 @@ import csv
 import os
 import networkx as nx
 
-from utils import TRUTH_VALUES
+from dipcalc.utils import TRUTH_VALUES
 
 
-class DiplomacyCalculator:
+class Adjudicator:
     def __init__(self, variant: str = "default"):
         """
         Initialise the app.
@@ -24,7 +24,7 @@ class DiplomacyCalculator:
         # Set up variant path
         variant_path = variant
         if "/" not in variant:
-            variant_path = os.path.join(os.getcwd(), "variants", variant)
+            variant_path = os.path.join(os.getcwd(), "dipcalc", "variants", variant)
 
         if not os.path.isdir(variant_path):
             raise Exception("Variant directory does not exist")
