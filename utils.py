@@ -1,0 +1,33 @@
+TRUTH_VALUES = (
+    "y",
+    "Y",
+    1,
+    "1",
+    "yes",
+    "YES",
+    "Yes",
+    "TRUE",
+    "true",
+    "True",
+    "T",
+    "t",
+    True,
+)
+
+FALSE_VALUES = (
+    "n",
+    "N",
+    0,
+    "0",
+    "",
+    None,
+    "false",
+    "F",
+    "f",
+    False,
+    "False",
+    "FALSE",
+    "no",
+    "NO",
+    "No",
+)
