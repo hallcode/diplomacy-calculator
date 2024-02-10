@@ -35,7 +35,7 @@ FALSE_VALUES = (
 )
 
 PLACEMENT_REGEX = r"^(\w{2})\s+([fFaA])\s+(\w+)$"
-ORDER_REGEX = r"^(\w{2})\s+(\w+)\s+([mascMASC])\s*:\s+((?:\s*[\w]+){1,2})$"
+ORDER_REGEX = r"^(\w{2})\s+([afAF])\s+(\w+)\s+([aschASCH])\s*:\s+((?:\s*[\w]+){1,2})$"
 
 
 class Unit(Enum):

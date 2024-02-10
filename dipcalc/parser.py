@@ -16,10 +16,10 @@ class OrderStatus(Enum):
 
 
 class OrderType(Enum):
-    ATTACK = auto()
-    SUPPORT = auto()
-    HOLD = auto()
-    CONVOY = auto()
+    ATTACK = "A"
+    SUPPORT = "S"
+    HOLD = "H"
+    CONVOY = "C"
 
 
 @dataclass

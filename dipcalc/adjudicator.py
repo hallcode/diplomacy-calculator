@@ -1,9 +1,11 @@
 import csv
 import os
 import networkx as nx
+import re
 
 from dipcalc.parser import UnitType, Order, OrderType
 from dipcalc.loaders import load_territories, load_factions
+from dipcalc.utils import ORDER_REGEX
 
 
 class Adjudicator:
@@ -131,7 +133,7 @@ class Adjudicator:
         # Check the territories are in the graph, and that they're adjacent
         unit_territory = order.territory
         from_territory = order.target[0]
-        to_territory = order.target[1]
+        to_territory = order.target[-1]
         try:
             edge = self.territories.edges[unit_territory.code, to_territory.code]
 
@@ -166,7 +168,13 @@ class Adjudicator:
 
         return True
 
-    def validate_position(self, order: Order):
+    def validate_position(self, order: Order) -> bool:
+        """
+        Validate if an order is valid, taking into account the current positions of units
+        and factions.
+        :param order:
+        :return:
+        """
         if not self.positions_loaded:
             return True
 
@@ -183,3 +191,34 @@ class Adjudicator:
             return False
 
         return True
+
+    def str2order(self, order: str) -> Order:
+        """
+        Parses an order given as a string and returns an order object
+        :param order: FACTION UNIT_TYPE BASE_TERRITORY ACTION: [TERRITORIES ... ]
+                e.g.  GB A LON A: YOR
+                      GB F LON A: LON YOR
+                      GB A LIV S: LON YOR
+                      FR F YOR H: YOR
+        :return:
+        """
+        components = re.search(ORDER_REGEX, order.lower())
+        if components is None:
+            raise Exception("Invalid order syntax")
+
+        try:
+            faction = self.factions[components.group(1)]
+        except KeyError:
+            raise Exception("Faction does not exist")
+
+        unit_type = UnitType(components.group(2).upper())
+        order_type = OrderType(components.group(4).upper())
+        base_territory = self.territories.nodes[components.group(3)]['data']
+        sequence = []
+        for t in components.group(5).split(" "):
+            try:
+                sequence.append(self.territories.nodes[t]['data'])
+            except KeyError:
+                raise Exception("Target territory does not exist")
+
+        return Order(faction, unit_type, base_territory, order_type, sequence)

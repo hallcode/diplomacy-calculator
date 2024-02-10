@@ -6,6 +6,7 @@ import os
 
 from pytest import raises
 from dipcalc import Adjudicator
+from dipcalc.parser import UnitType
 
 
 def test_variant_not_exists_raises_error():
@@ -32,6 +33,13 @@ def test_loading_variant_from_path():
 
 def test_place_default_units():
     adj = Adjudicator()
+    # No positions should be loaded at this point
+    assert len(adj.positions) == 0
+    assert not adj.positions_loaded
+
     adj.place_default()
 
-    assert adj.placem
+    assert len(adj.positions) > 0
+    assert adj.positions["vie"][0].code == "ah"
+    assert adj.positions["vie"][1] is UnitType.ARMY
+    assert adj.positions_loaded
