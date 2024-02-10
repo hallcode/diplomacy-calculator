@@ -2,7 +2,8 @@ import csv
 import os
 import networkx as nx
 
-from dipcalc.utils import TRUTH_VALUES
+from dipcalc.parser import UnitType, Order, OrderType
+from dipcalc.loaders import load_territories, load_factions
 
 
 class Adjudicator:
@@ -31,69 +32,13 @@ class Adjudicator:
 
         self.variant_path = os.path.abspath(variant_path)
 
-        # Set up other fields (blank at the moment
-        self.territories = nx.Graph()
+        self.territories = load_territories(variant_path)
+        self.factions = load_factions(variant_path)
+
         self.movements = nx.DiGraph()
 
         self.positions_loaded = False
         self.positions = {}
-        self.factions = {}
-
-        # Load the stuffs that needs to be loaded before anything else
-        self.load_territories()
-        self.load_factions()
-
-    def load_territories(self):
-        """
-        Load the territories from the variant file
-        :return: None
-        """
-
-        path = os.path.join(self.variant_path, "territories.csv")
-        if not os.path.exists(path):
-            raise Exception("Territories file does not exist.")
-
-        with open(path) as territories_csv:
-            reader = csv.DictReader(territories_csv)
-            territories = list(reader)
-
-            # Add all the territories to the graph
-            for t in territories:
-                self.territories.add_node(
-                    t["code"].lower(),
-                    name=t["name"],
-                    code=t["code"].lower(),
-                    capital=t["capitalYN"] in TRUTH_VALUES,
-                    armies=t["armiesYN"] in TRUTH_VALUES,
-                    fleets=t["fleetsYN"] in TRUTH_VALUES,
-                )
-
-            # Then loop again and add all the edges
-            for t in territories:
-                for border_territory in t["borders"].lower().split(","):
-                    self.territories.add_edge(
-                        t["code"].lower(), border_territory, type="border"
-                    )
-
-                if t["parent"]:
-                    self.territories.add_edge(
-                        t["code"], t["parent"].lower(), type="parent"
-                    )
-
-    def load_factions(self):
-        """
-        Load default factions from the variant file
-        :return: None
-        """
-        path = os.path.join(self.variant_path, "factions.csv")
-        if not os.path.exists(path):
-            raise Exception("Factions file does not exist.")
-
-        with open(path) as factions_file:
-            reader = csv.DictReader(factions_file)
-            for f in reader:
-                code = f["code"].lower()
-                self.factions[code] = f
 
     def place_default(self):
         path = os.path.join(self.variant_path, "placements.txt")
@@ -103,15 +48,18 @@ class Adjudicator:
         with open(path) as placements_file:
             for line in placements_file:
                 placement = line.split()
-                self.place(*placement)
+                unit = UnitType(placement[1].upper())
+                self.place(placement[0], unit, placement[2])
 
         self.positions_loaded = True
 
     def place_all(self, placements: list):
         for placement in placements:
+            if isinstance(placement[1], str):
+                placement[1] = UnitType(placement[1])
             self.place(*placement)
 
-    def place(self, faction_code: str, unit_type: str, territory_code: str):
+    def place(self, faction_code: str, unit_type: UnitType, territory_code: str):
         """
         Place a unit on the board. Does not check if the move is legal, only that the placement
         is valid.
@@ -125,7 +73,6 @@ class Adjudicator:
         # Ensure consistency, don't trust the user
         faction_code = faction_code.lower()
         territory_code = territory_code.lower()
-        unit_type = unit_type.upper()
 
         # Check the factions and territories exist
         if faction_code not in self.factions:
@@ -139,79 +86,100 @@ class Adjudicator:
             )
 
         # Keep it safe
-        territory = self.territories.nodes[territory_code]
+        territory = self.territories.nodes[territory_code]["data"]
+        faction = self.factions[faction_code]
 
         # Check the placement is valid
-        if unit_type not in ("A", "F"):
-            raise Exception(f"Unit type '{unit_type}' is not valid.")
+        if not isinstance(unit_type, UnitType):
+            raise Exception(f"UnitType type '{unit_type}' is not valid.")
 
-        if unit_type == "A" and not territory["armies"]:
+        if unit_type is UnitType.ARMY and not territory.armies:
             raise Exception("Cannot place unit; armies can only be placed on land.")
 
-        if unit_type == "F" and not territory["fleets"]:
+        if unit_type is UnitType.FLEET and not territory.fleets:
             raise Exception(
                 "Cannot place unit; fleets can only be placed on seas or coasts."
             )
 
-        position = (faction_code, unit_type)
+        position = (faction, unit_type)
 
-        self.positions[territory_code] = position
+        self.positions[territory.code] = position
 
         # Because some territories have a parent (stored as a type of edge)
         # we need to make sure that any parent territory is cleared, and that other children
         # of the same parent are also cleared. Very edge case but needs to be catered for.
-        for t in self.territories.adj[territory_code]:
-            if self.territories.edges[territory_code, t]["type"] == "parent":
-                self.positions[t] = None
+        for t in self.territories.adj[territory.code]:
+            if self.territories.edges[territory.code, t]["type"] == "parent":
+                del self.positions[t]
 
                 # Now check the other children of the parent
                 for b in self.territories.adj[t]:
                     if self.territories.edges[t, b]["type"] == "parent":
-                        self.positions[b] = None
+                        del self.positions[b]
 
-    def validate_move(
-        self, unit_type: str, initial: str, target: str, faction: str = None
-    ) -> bool:
+    def validate_order(self, order: Order, check_placements: bool = False) -> bool:
         """
-        Determine if a proposed unit move (synonymous with Attack) is valid.
-        :param unit_type: A/F for Army or Fleet
-        :param initial:  The territory the unit currently occupies
-        :param target:  The territory the unit wishes to move to
-        :param faction: Optional. The code of the faction the unit belongs to.
-                        If included and positions are available, this function will
-                        validate the faction.
-        :return: bool
+        Check the basic validity of an order and return True if the order is valid
+        :param order:
+        :param check_placements:
+        :return:
         """
-        a = initial.lower()
-        b = target.lower()
+
+        if order.type is OrderType.HOLD:
+            return self.validate_position(order)
+
+        # Check the territories are in the graph, and that they're adjacent
+        unit_territory = order.territory
+        from_territory = order.target[0]
+        to_territory = order.target[1]
         try:
-            edge = self.territories.edges[a, b]
+            edge = self.territories.edges[unit_territory.code, to_territory.code]
+
+            if edge["type"] != "border":
+                return False
+
+            # If this is a support order, then also check that (1) it's not supporting itself and
+            # (2) it is also bordering the territory it wishes to help
+            if order.type is OrderType.SUPPORT:
+                support_edge = self.territories.edges[
+                    unit_territory.code, from_territory.code
+                ]
+                attack_edge = self.territories.edges[
+                    unit_territory.code, to_territory.code
+                ]
+
+                if support_edge["type"] != "border" or attack_edge["type"] != "border":
+                    return False
+
         except KeyError:
             return False
 
-        if edge["type"] != "border":
+        if check_placements:
+            return self.validate_position(order)
+
+        # In any case, check the proposed move makes sense
+        if order.unit is UnitType.ARMY and not to_territory.armies:
             return False
 
-        # If there are positions, then check if there is a matching unit on the
-        # initial territory. Ditto faction
-        if self.positions_loaded:
-            try:
-                initial_pos = self.positions[a]
-                if initial_pos[1].upper() != unit_type.upper():
-                    return False
+        if order.unit is UnitType.FLEET and not to_territory.fleets:
+            return False
 
-                if faction is not None:
-                    if initial_pos[0].lower() != faction.lower():
-                        return False
+        return True
 
-            except KeyError:
+    def validate_position(self, order: Order):
+        if not self.positions_loaded:
+            return True
+
+        try:
+            initial_pos = self.positions[order.territory.code]
+            if initial_pos[1] is not order.unit:
                 return False
 
-        target_territory = self.territories.nodes[b]
-        if unit_type.upper() == "A" and not target_territory["armies"]:
-            return False
+            if order.faction is not None:
+                if initial_pos[0].code != order.faction.code:
+                    return False
 
-        if unit_type.upper() == "F" and not target_territory["fleets"]:
+        except KeyError:
             return False
 
         return True

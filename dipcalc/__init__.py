@@ -39,7 +39,7 @@ def move(context, unit_type: str, a: str, b: str, faction_code: str = None):
     if faction_code is not None:
         faction = adj.factions[faction_code]
 
-    title = click.style(" ORDERS ".center(60, "="))
+    title = click.style(" ORDERS ".center(60, "#"))
     click.echo(title)
 
     if faction is not None:

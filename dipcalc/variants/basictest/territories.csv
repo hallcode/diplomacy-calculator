@@ -1,0 +1,9 @@
+name,code,capitalYN,borders,armiesYN,fleetsYN,parent
+Land A,la,n,"ms,ss",y,y,
+Land B,lb,n,"ns,lc,le",y,y,
+Land C,lc,n,"ns,lb,le,ld,ms",y,y,
+Land D,ld,n,"ms,lc,le",y,y,
+Land E,le,n,"lb,lc,ld",y,n,
+North Sea,ns,n,"lb,lc,ms",n,y,
+Mid Sea,ms,n,"ns,lc,ld,ss,la",n,y,
+South Sea,ss,n,"la,ms",n,y,

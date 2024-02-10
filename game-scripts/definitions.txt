@@ -1,0 +1,13 @@
+# comment
+
+# placements
+# FACTION [A/F] TERRITORY
+GB F A
+NX A scpNC
+ED F plc
+DE A ND
+
+# orders
+# [FACTION]
+# BASE [ORDER] [TERRITORIES...]
+

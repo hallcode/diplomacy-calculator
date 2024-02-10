@@ -1,3 +1,5 @@
+from enum import Enum
+
 TRUTH_VALUES = (
     "y",
     "Y",
@@ -31,3 +33,11 @@ FALSE_VALUES = (
     "NO",
     "No",
 )
+
+PLACEMENT_REGEX = r"^(\w{2})\s+([fFaA])\s+(\w+)$"
+ORDER_REGEX = r"^(\w{2})\s+(\w+)\s+([mascMASC])\s*:\s+((?:\s*[\w]+){1,2})$"
+
+
+class Unit(Enum):
+    ARMY = "A"
+    FLEET = "F"
